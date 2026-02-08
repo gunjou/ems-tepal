@@ -1,343 +1,251 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { PieChart, Pie, Cell, ResponsiveContainer } from "recharts";
-import {
-  Zap,
-  Activity,
-  TrendingUp,
-  Waves,
-  AlertTriangle,
-  CheckCircle,
-} from "lucide-react";
+import { Zap, Activity, TrendingUp, Waves, AlertTriangle } from "lucide-react";
 import RealtimeLoadChart from "../components/charts/RealtimeLoadChart";
 import StatCard from "../components/charts/StatCard";
 
 const Overview = ({ activeTab, subLocation = "total" }) => {
-  const [activeMetric, setActiveMetric] = useState("watt");
+  // 1. Ubah default activeMetric ke 'power' sesuai database
+  const [activeMetric, setActiveMetric] = useState("power");
+
+  // Logika Deteksi Satuan Dinamis
+  const isRealtime = activeTab === "Realtime" || activeTab === "Waktu Nyata";
+  const dynamicUnit = isRealtime ? "kW" : "kWh";
 
   const loadDistributionData = [
     { name: "Dusun Tepal", value: 75, color: "#F59E0B" },
     { name: "Dusun Pusu", value: 25, color: "#10B981" },
   ];
 
-  const getMultiplier = (loc) => {
-    if (loc === "tepal") return 0.75;
-    if (loc === "pusu") return 0.25;
-    return 1.0;
-  };
-
-  const [liveValues, setLiveValues] = useState(() => {
-    const mult = getMultiplier(subLocation);
-    return {
-      watt: 55 * mult,
-      voltage: 224.5,
-      current: 12.5 * mult,
-      frequency: 50.02,
-    };
-  });
-
-  const [trends, setTrends] = useState({
-    watt: "0.0%",
-    voltage: "0.0%",
-    current: "0.0%",
-    frequency: "0.0%",
-  });
-
-  const [powerQuality, setPowerQuality] = useState(0.98);
-
+  // Logic Multiplier berdasarkan lokasi
   const multiplier = useMemo(() => {
     if (subLocation === "tepal") return 0.75;
     if (subLocation === "pusu") return 0.25;
     return 1.0;
   }, [subLocation]);
 
-  const getScaledValue = (key, rawValue) => {
-    if (key === "watt" || key === "current") {
-      return rawValue * multiplier;
-    }
-    return rawValue;
-  };
+  // 2. State untuk menampung seluruh field dari tabel database
+  const [liveValues, setLiveValues] = useState({
+    power: 0,
+    power_r: 0,
+    power_s: 0,
+    power_t: 0,
+    voltage: 220,
+    current: 0,
+    u_current: 0,
+    frequency: 50,
+  });
 
-  const historyData = {
-    Harian: { watt: 45.2, voltage: 220.5, current: 12.1, frequency: 50.1 },
-    Bulanan: { watt: 1250.8, voltage: 219.2, current: 11.5, frequency: 49.9 },
-    Tahunan: { watt: 15420.5, voltage: 221.0, current: 12.4, frequency: 50.0 },
-  };
+  const [trends, setTrends] = useState({});
+  const [powerQuality, setPowerQuality] = useState(0.98);
 
-  const historyChartData = useMemo(() => {
-    const generateData = (length, min, max, labelPrefix = "") =>
-      Array.from({ length }, (_, i) => ({
-        time: labelPrefix ? `${labelPrefix} ${i + 1}` : `${i}:00`,
-        value: getScaledValue(
-          activeMetric,
-          parseFloat((Math.random() * (max - min) + min).toFixed(2)),
-        ),
-      }));
-
-    const ranges = {
-      watt: { harian: [1000, 2000], bulanan: [30, 60], tahunan: [1000, 1500] },
-      voltage: { harian: [215, 225], bulanan: [218, 222], tahunan: [219, 221] },
-      current: { harian: [10, 15], bulanan: [8, 12], tahunan: [10, 13] },
-      frequency: {
-        harian: [49.5, 50.5],
-        bulanan: [49.8, 50.2],
-        tahunan: [49.9, 50.1],
-      },
-    };
-
-    const r = ranges[activeMetric];
-    return {
-      Harian: generateData(24, r.harian[0], r.harian[1]),
-      Bulanan: generateData(30, r.bulanan[0], r.bulanan[1], "Tgl"),
-      Tahunan: [
-        "Jan",
-        "Feb",
-        "Mar",
-        "Apr",
-        "Mei",
-        "Jun",
-        "Jul",
-        "Agu",
-        "Sep",
-        "Okt",
-        "Nov",
-        "Des",
-      ].map((m) => ({
-        time: m,
-        value: getScaledValue(
-          activeMetric,
-          parseFloat(
-            (
-              Math.random() * (r.tahunan[1] - r.tahunan[0]) +
-              r.tahunan[0]
-            ).toFixed(2),
-          ),
-        ),
-      })),
-    };
-  }, [activeMetric, multiplier]);
-
+  // Simulasi Update Data Realtime
   useEffect(() => {
-    if (activeTab === "Waktu Nyata" || activeTab === "Realtime") {
+    if (isRealtime) {
       const updateData = () => {
         setLiveValues((prev) => {
+          // Simulasi nilai dengan 1 desimal
           const rawNext = {
-            watt: Math.floor(Math.random() * (70 - 40) + 40),
-            voltage: parseFloat((Math.random() * (245 - 210) + 210).toFixed(1)),
-            current: parseFloat((Math.random() * (18 - 10) + 10).toFixed(2)),
-            frequency: parseFloat(
-              (Math.random() * (50.5 - 49.5) + 49.5).toFixed(2),
-            ),
+            power: parseFloat((Math.random() * 5 + 5).toFixed(1)), // ex: 7.8
+            power_r: parseFloat((Math.random() * 2 + 1).toFixed(1)), // ex: 2.5
+            power_s: parseFloat((Math.random() * 2 + 1).toFixed(1)), // ex: 1.9
+            power_t: parseFloat((Math.random() * 2 + 1).toFixed(1)), // ex: 3.4
+            voltage: parseFloat((Math.random() * 10 + 230).toFixed(1)), // ex: 239.5
+            current: parseFloat((Math.random() * 10 + 10).toFixed(1)), // ex: 14.7
+            u_current: Math.floor(Math.random() * 30 + 30), // ex: 59%
+            frequency: parseFloat((Math.random() * 0.4 + 49.8).toFixed(1)), // ex: 50.1
           };
 
-          const scaledNext = {
-            watt: getScaledValue("watt", rawNext.watt),
-            voltage: getScaledValue("voltage", rawNext.voltage),
-            current: getScaledValue("current", rawNext.current),
-            frequency: getScaledValue("frequency", rawNext.frequency),
+          const scaled = {
+            ...rawNext,
+            power: parseFloat((rawNext.power * multiplier).toFixed(1)),
+            current: parseFloat((rawNext.current * multiplier).toFixed(1)),
           };
 
+          // Trend logic (hanya di realtime)
           const newTrends = {};
-          Object.keys(scaledNext).forEach((key) => {
-            const diff = scaledNext[key] - prev[key];
-            const percent = prev[key] !== 0 ? (diff / prev[key]) * 100 : 0;
-            newTrends[key] = `${percent >= 0 ? "+" : ""}${percent.toFixed(2)}%`;
+          Object.keys(scaled).forEach((key) => {
+            const diff = scaled[key] - prev[key];
+            newTrends[key] =
+              `${diff >= 0 ? "+" : ""}${((diff / prev[key]) * 100 || 0).toFixed(1)}%`;
           });
           setTrends(newTrends);
-          setPowerQuality(parseFloat((0.96 + Math.random() * 0.03).toFixed(2)));
-          return scaledNext;
+          return scaled;
         });
       };
-      updateData();
       const interval = setInterval(updateData, 3000);
       return () => clearInterval(interval);
     } else {
-      const baseKey =
-        activeTab === "Harian"
-          ? "Harian"
-          : activeTab === "Bulanan"
-            ? "Bulanan"
-            : "Tahunan";
-      const base = historyData[baseKey] || historyData.Harian;
+      // Logika sederhana untuk data history (kW -> kWh)
       setLiveValues({
-        watt: getScaledValue("watt", base.watt),
-        voltage: getScaledValue("voltage", base.voltage),
-        current: getScaledValue("current", base.current),
-        frequency: getScaledValue("frequency", base.frequency),
-      });
-      setTrends({
-        watt: "0.0%",
-        voltage: "0.0%",
-        current: "0.0%",
-        frequency: "0.0%",
+        power: (124.5).toFixed(1),
+        power_r: (40.2).toFixed(1),
+        power_s: (42.1).toFixed(1),
+        power_t: (42.2).toFixed(1),
+        voltage: "220.0",
+        current: "12.5",
+        u_current: "15",
+        frequency: "50.0",
       });
     }
-  }, [activeTab, multiplier]);
+  }, [isRealtime, multiplier]);
 
-  // Perubahan Label Istilah Teknis
   const metrics = [
     {
-      id: "watt",
-      label: "Daya Aktif", // Pengganti Konsumsi/Watt
-      unit: "kW",
-      icon: <TrendingUp size={20} />,
+      id: "power",
+      label: "Daya Aktif",
+      unit: dynamicUnit,
+      icon: <TrendingUp />,
       color: "text-et-yellow",
     },
     {
       id: "voltage",
       label: "Tegangan",
       unit: "V",
-      icon: <Zap size={20} />,
+      icon: <Zap />,
       color: "text-blue-500",
     },
     {
       id: "current",
       label: "Arus",
       unit: "A",
-      icon: <Activity size={20} />,
+      icon: <Activity />,
       color: "text-red-500",
     },
     {
       id: "frequency",
       label: "Frekuensi",
       unit: "Hz",
-      icon: <Waves size={20} />,
+      icon: <Waves />,
       color: "text-et-green",
     },
   ];
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-500">
-      {/* Grid Kartu Statistik */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {metrics.map((m) => (
-          <StatCard
-            key={m.id}
-            {...m}
-            value={liveValues[m.id]?.toLocaleString("id-ID") || "0"}
-            trend={
-              activeTab === "Realtime" || activeTab === "Waktu Nyata"
-                ? trends[m.id]
-                : m.id === "voltage" || m.id === "frequency"
-                  ? "Sinkronisasi Sistem"
-                  : `Unit: ${subLocation.toUpperCase()}`
-            }
-            isActive={activeMetric === m.id}
-            onClick={() => setActiveMetric(m.id)}
-          />
-        ))}
+    <div className="space-y-4 animate-in fade-in duration-500">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+        {metrics.map((m) => {
+          // Logic data fasa R,S,T untuk Daya
+          const phasesData =
+            m.id === "power"
+              ? [
+                  { label: "R", value: liveValues.power_r },
+                  { label: "S", value: liveValues.power_s },
+                  { label: "T", value: liveValues.power_t },
+                ]
+              : null;
+
+          // Logic data Unbalance untuk Arus
+          const extraInfoData =
+            m.id === "current"
+              ? {
+                  label: "Persentase Unbalance",
+                  value: liveValues.u_current,
+                  unit: "%",
+                }
+              : null;
+
+          return (
+            <StatCard
+              key={m.id}
+              {...m}
+              value={liveValues[m.id]}
+              trend={trends[m.id]} // Trend tetap ada di semua card
+              isActive={activeMetric === m.id}
+              onClick={() => setActiveMetric(m.id)}
+              phases={phasesData}
+              extraInfo={extraInfoData}
+              isHistory={!isRealtime}
+            />
+          );
+        })}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Bagian Grafik Utama */}
-        <div className="lg:col-span-2 bg-white dark:bg-slate-900 p-4 rounded-3xl border border-slate-200 shadow-sm">
-          <div className="flex justify-between items-center mb-6 px-2">
+        {/* Kontainer Grafik Utama */}
+        <div className="lg:col-span-2 bg-white dark:bg-slate-900 p-5 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm">
+          <div className="flex justify-between items-center mb-6">
             <div>
-              <h3 className="font-bold text-slate-800 dark:text-white capitalize leading-tight">
+              <h3 className="font-bold text-slate-800 dark:text-white capitalize">
                 {subLocation === "total"
                   ? "Seluruh Wilayah"
                   : `Dusun ${subLocation}`}
               </h3>
-              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">
-                Pemantauan {activeMetric} - {activeTab}
+              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">
+                Grafik {activeMetric} - {activeTab}
               </p>
             </div>
-            <span className="text-[10px] bg-slate-100 dark:bg-slate-800 px-3 py-1 rounded-full font-bold text-slate-500">
-              KONTRIBUSI BEBAN {multiplier * 100}%
+            <span className="text-[10px] bg-et-blue/5 text-et-blue px-3 py-1 rounded-full font-black uppercase">
+              Beban: {Math.round(multiplier * 100)}%
             </span>
           </div>
-          <div className="h-64">
+
+          <div className="h-[270px]">
             <RealtimeLoadChart
               activeMetric={activeMetric}
               latestValue={liveValues[activeMetric]}
               activeTab={activeTab}
-              historyData={
-                historyChartData[
-                  activeTab === "Waktu Nyata" ? "Realtime" : activeTab
-                ]
-              }
               subLocation={subLocation}
+              // Data history bisa ditambahkan di sini jika sudah ada API
             />
           </div>
         </div>
 
-        {/* Bilah Samping Info Listrik */}
-        <div className="space-y-6">
-          <div className="bg-white dark:bg-slate-900 p-5 rounded-3xl border border-slate-200 shadow-sm">
-            <h3 className="text-[10px] font-bold text-slate-400 uppercase mb-3 tracking-widest">
-              Kualitas Daya
+        {/* Sidebar Info - Power Quality & Distribution */}
+        <div className="space-y-4">
+          <div className="bg-white dark:bg-slate-900 p-5 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm">
+            <h3 className="text-[10px] font-bold text-slate-400 uppercase mb-4 tracking-widest text-center">
+              Kualitas Daya (Cos Phi)
             </h3>
-            <div className="text-4xl font-black text-et-green text-center">
+            <div className="text-5xl font-black text-et-green text-center tracking-tighter mb-2">
               {powerQuality}
             </div>
-            <p className="text-[9px] text-center text-slate-400 font-bold uppercase mt-1">
-              Faktor Daya (Cos Phi)
-            </p>
-            <div className="w-full bg-slate-100 h-1 rounded-full mt-4">
+            <div className="w-full bg-slate-100 dark:bg-slate-800 h-1.5 rounded-full overflow-hidden">
               <div
-                className="bg-et-green h-1 rounded-full transition-all duration-1000"
+                className="bg-et-green h-full transition-all duration-1000"
                 style={{ width: `${powerQuality * 100}%` }}
               ></div>
             </div>
           </div>
 
-          <div className="bg-white dark:bg-slate-900 p-5 rounded-3xl border border-slate-200 h-[175px] flex flex-col shadow-sm">
-            <div className="flex justify-between items-center mb-1">
-              <h3 className="text-sm font-bold text-slate-800 dark:text-white">
-                Distribusi Beban
-              </h3>
-              <div className="flex items-center gap-1">
-                <div className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse"></div>
-                <span className="text-[9px] font-bold text-slate-400 uppercase">
-                  Rasio Langsung
-                </span>
-              </div>
+          <div className="bg-white dark:bg-slate-900 p-5 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm flex-1">
+            <h3 className="text-sm font-bold text-slate-800 dark:text-white mb-4">
+              Distribusi Beban
+            </h3>
+            <div className="h-24">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={loadDistributionData}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={30}
+                    outerRadius={45}
+                    paddingAngle={8}
+                    dataKey="value"
+                    stroke="none"
+                  >
+                    {loadDistributionData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.color} />
+                    ))}
+                  </Pie>
+                </PieChart>
+              </ResponsiveContainer>
             </div>
-
-            <div className="flex-1 flex items-center justify-between gap-2 overflow-hidden">
-              <div className="w-1/2 h-full">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={loadDistributionData}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={25}
-                      outerRadius={40}
-                      paddingAngle={5}
-                      dataKey="value"
-                      stroke="none"
-                    >
-                      {loadDistributionData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={entry.color} />
-                      ))}
-                    </Pie>
-                  </PieChart>
-                </ResponsiveContainer>
-              </div>
-
-              <div className="w-1/2 space-y-2">
-                {loadDistributionData.map((item) => (
-                  <div key={item.name} className="flex flex-col">
-                    <div className="flex items-center gap-1.5">
-                      <div
-                        className="w-1.5 h-1.5 rounded-full"
-                        style={{ backgroundColor: item.color }}
-                      />
-                      <span className="text-[10px] font-bold text-slate-600 dark:text-slate-300 truncate">
-                        {item.name}
-                      </span>
-                    </div>
-                    <div className="flex items-baseline gap-1 ml-3">
-                      <span className="text-xs font-black text-slate-800 dark:text-white">
-                        {item.value}%
-                      </span>
-                      <span className="text-[8px] text-slate-400 font-bold uppercase tracking-tighter">
-                        Beban
-                      </span>
-                    </div>
-                  </div>
-                ))}
-              </div>
+            <div className="grid grid-cols-2 gap-2 mt-2">
+              {loadDistributionData.map((item) => (
+                <div
+                  key={item.name}
+                  className="p-2 rounded-xl bg-slate-50 dark:bg-slate-800/50"
+                >
+                  <p className="text-[8px] font-bold text-slate-400 uppercase">
+                    {item.name}
+                  </p>
+                  <p className="text-xs font-black text-slate-700 dark:text-white">
+                    {item.value}%
+                  </p>
+                </div>
+              ))}
             </div>
           </div>
         </div>
