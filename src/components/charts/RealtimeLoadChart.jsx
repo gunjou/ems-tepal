@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useMemo } from "react";
 import {
   AreaChart,
   Area,
@@ -12,90 +12,45 @@ import {
   Cell,
 } from "recharts";
 
-const RealtimeLoadChart = ({
-  activeMetric,
-  latestValue,
-  activeTab,
-  historyData,
-  subLocation,
-}) => {
-  const [realtimeData, setRealtimeData] = useState([]);
+const RealtimeLoadChart = ({ activeMetric, activeTab, historyData = [] }) => {
+  const isRealtime = activeTab === "Realtime" || activeTab === "Waktu Nyata";
+  const isDaily = activeTab === "Harian";
+  const isMonthly = activeTab === "Bulanan";
+  const isYearly = activeTab === "Tahunan";
 
-  // Multiplier internal tetap dipertahankan untuk sinkronisasi data
-  const multiplier = useMemo(() => {
-    if (subLocation === "tepal") return 0.75;
-    if (subLocation === "pusu") return 0.25;
-    return 1.0;
-  }, [subLocation]);
-
+  // 1. Konfigurasi Warna & Unit
   const config = useMemo(
     () => ({
-      watt: { color: "#FBC02D", unit: "W" },
+      power: { color: "#FBC02D", unit: isRealtime ? "kW" : "kWh" },
       voltage: { color: "#2B5797", unit: "V" },
       current: { color: "#EF4444", unit: "A" },
       frequency: { color: "#438241", unit: "Hz" },
     }),
-    [subLocation],
+    [isRealtime],
   );
 
-  const currentConfig = config[activeMetric] || config.watt;
+  const currentConfig = config[activeMetric] || config.power;
 
-  useEffect(() => {
-    if (activeTab === "Realtime") {
-      setRealtimeData((prev) => {
-        const now = new Date();
-        const timeString = now.toLocaleTimeString([], {
-          hour: "2-digit",
-          minute: "2-digit",
-          second: "2-digit",
-        });
-
-        if (
-          prev.length === 0 ||
-          activeMetric !== prev.metricId ||
-          subLocation !== prev.currentLoc
-        ) {
-          const init = Array(20)
-            .fill(0)
-            .map((_, i) => {
-              const pastTime = new Date(now.getTime() - (20 - i) * 3000);
-              const randomFactor = 1 + (Math.random() - 0.5) * 0.1;
-              const initialValue = latestValue * randomFactor;
-
-              return {
-                time: pastTime.toLocaleTimeString([], {
-                  hour: "2-digit",
-                  minute: "2-digit",
-                  second: "2-digit",
-                }),
-                value: parseFloat(initialValue.toFixed(2)),
-              };
-            });
-
-          init.metricId = activeMetric;
-          init.currentLoc = subLocation;
-          return init;
-        }
-
-        const newData = [...prev.slice(1)];
-        newData.push({
-          time: timeString,
-          value: latestValue,
-        });
-        newData.metricId = activeMetric;
-        newData.currentLoc = subLocation;
-        return newData;
-      });
-    }
-  }, [latestValue, activeTab, activeMetric, subLocation]);
-
-  // CUSTOM TOOLTIP: Mengubah "Live Monitoring" menjadi "Pemantauan Langsung"
+  // 2. Custom Tooltip dengan Logika Multi-Filter
   const CustomTooltip = ({ active, payload, label }) => {
     if (active && payload && payload.length) {
+      let headerLabel = "";
+
+      if (isRealtime) {
+        headerLabel = `Pukul ${label}`;
+      } else if (isDaily) {
+        headerLabel = `Jam ${label}`; // bisa ditambahkan :00 jika perlu
+      } else if (isMonthly) {
+        headerLabel = `${label}`; // Untuk bulanan, label biasanya sudah berisi "Tgl 1", "Tgl 2", dst dari API
+      } else if (isYearly) {
+        // Untuk tahunan, label biasanya sudah berisi "Jan", "Feb", dst dari API
+        headerLabel = `${label}`; // Untuk tahunan, label biasanya sudah berisi "Jan", "Feb", dst dari API
+      }
+
       return (
-        <div className="bg-white dark:bg-slate-800 p-3 shadow-xl border border-slate-100 dark:border-slate-700 rounded-xl">
+        <div className="bg-white dark:bg-slate-800 p-2 shadow-xl border border-slate-100 dark:border-slate-700 rounded-lg">
           <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">
-            {label ? `Pukul ${label}` : "Pemantauan Langsung"}
+            {headerLabel}
           </p>
           <div className="flex items-center gap-2">
             <div
@@ -115,19 +70,14 @@ const RealtimeLoadChart = ({
     return null;
   };
 
-  if (activeTab === "Realtime") {
+  // TAMPILAN AREA CHART (Realtime)
+  if (isRealtime) {
     return (
       <div className="w-full h-full">
         <ResponsiveContainer width="100%" height="100%">
-          <AreaChart data={realtimeData} key={`${activeMetric}-${subLocation}`}>
+          <AreaChart data={historyData}>
             <defs>
-              <linearGradient
-                id={`colorMetric-${activeMetric}`}
-                x1="0"
-                y1="0"
-                x2="0"
-                y2="1"
-              >
+              <linearGradient id="colorMetric" x1="0" y1="0" x2="0" y2="1">
                 <stop
                   offset="5%"
                   stopColor={currentConfig.color}
@@ -145,7 +95,15 @@ const RealtimeLoadChart = ({
               vertical={false}
               strokeOpacity={0.05}
             />
-            <XAxis dataKey="time" hide />
+            <XAxis
+              dataKey="label"
+              fontSize={10}
+              tickLine={false}
+              axisLine={false}
+              tick={{ fill: "#94a3b8" }}
+              interval="preserveStartEnd"
+              minTickGap={30}
+            />
             <YAxis
               domain={["auto", "auto"]}
               fontSize={10}
@@ -154,19 +112,15 @@ const RealtimeLoadChart = ({
               tick={{ fill: "#94a3b8" }}
               width={40}
             />
-            <Tooltip
-              content={<CustomTooltip />}
-              cursor={{ stroke: currentConfig.color, strokeWidth: 1 }}
-            />
+            <Tooltip content={<CustomTooltip />} />
             <Area
               type="monotone"
               dataKey="value"
               stroke={currentConfig.color}
               strokeWidth={3}
               fillOpacity={1}
-              fill={`url(#colorMetric-${activeMetric})`}
+              fill="url(#colorMetric)"
               animationDuration={500}
-              isAnimationActive={true}
             />
           </AreaChart>
         </ResponsiveContainer>
@@ -174,21 +128,27 @@ const RealtimeLoadChart = ({
     );
   }
 
+  // TAMPILAN BAR CHART (Harian, Bulanan, & Tahunan)
   return (
     <div className="w-full h-full">
       <ResponsiveContainer width="100%" height="100%">
-        <BarChart data={historyData}>
+        <BarChart
+          data={historyData}
+          margin={{ top: 10, right: 10, left: 0, bottom: 0 }}
+        >
           <CartesianGrid
             strokeDasharray="3 3"
             vertical={false}
             strokeOpacity={0.1}
           />
           <XAxis
-            dataKey="time"
+            dataKey="label"
             fontSize={10}
             tickLine={false}
             axisLine={false}
             tick={{ fill: "#94a3b8" }}
+            // Jika bulanan (30 data) interval lebih besar, tahunan (12 data) tampilkan semua
+            interval={isMonthly ? 4 : isYearly ? 0 : 2}
           />
           <YAxis
             fontSize={10}
@@ -197,16 +157,18 @@ const RealtimeLoadChart = ({
             tick={{ fill: "#94a3b8" }}
             width={40}
           />
-          <Tooltip content={<CustomTooltip />} />
+          <Tooltip
+            content={<CustomTooltip />}
+            cursor={{ fill: "rgba(0,0,0,0.05)" }}
+          />
           <Bar dataKey="value" radius={[4, 4, 0, 0]} animationDuration={1000}>
-            {historyData &&
-              historyData.map((entry, index) => (
-                <Cell
-                  key={`cell-${index}`}
-                  fill={currentConfig.color}
-                  fillOpacity={0.8}
-                />
-              ))}
+            {historyData.map((entry, index) => (
+              <Cell
+                key={`cell-${index}`}
+                fill={currentConfig.color}
+                fillOpacity={0.8}
+              />
+            ))}
           </Bar>
         </BarChart>
       </ResponsiveContainer>

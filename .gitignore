@@ -2,6 +2,7 @@
 
 # custom
 deploy.sh
+.env
 
 # dependencies
 /node_modules

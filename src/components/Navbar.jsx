@@ -9,9 +9,9 @@ import {
   LogOut,
   Settings,
   User,
-  Zap,
-  AlertTriangle,
-  CheckCircle2,
+  // Zap,
+  // AlertTriangle,
+  // CheckCircle2,
 } from "lucide-react";
 
 const Navbar = ({ isDarkMode, toggleDarkMode, onLogout }) => {
@@ -29,30 +29,30 @@ const Navbar = ({ isDarkMode, toggleDarkMode, onLogout }) => {
 
   // Data Notifikasi dalam Bahasa Indonesia
   const notifications = [
-    {
-      id: 1,
-      title: "Tegangan Tinggi Terdeteksi",
-      desc: "Fasa R mencapai 242V di Panel Utama",
-      time: "2 menit yang lalu",
-      icon: <AlertTriangle className="text-red-500" size={16} />,
-      isRead: false,
-    },
-    {
-      id: 2,
-      title: "Target Efisiensi Tercapai",
-      desc: "Sistem mencatat kenaikan efisiensi 5% minggu ini",
-      time: "1 jam yang lalu",
-      icon: <CheckCircle2 className="text-et-green" size={16} />,
-      isRead: false,
-    },
-    {
-      id: 3,
-      title: "Pemeliharaan Sistem",
-      desc: "Pembaruan firmware sensor berhasil dipasang",
-      time: "3 jam yang lalu",
-      icon: <Zap className="text-et-blue" size={16} />,
-      isRead: true,
-    },
+    // {
+    //   id: 1,
+    //   title: "Tegangan Tinggi Terdeteksi",
+    //   desc: "Fasa R mencapai 242V di Panel Utama",
+    //   time: "2 menit yang lalu",
+    //   icon: <AlertTriangle className="text-red-500" size={16} />,
+    //   isRead: false,
+    // },
+    // {
+    //   id: 2,
+    //   title: "Target Efisiensi Tercapai",
+    //   desc: "Sistem mencatat kenaikan efisiensi 5% minggu ini",
+    //   time: "1 jam yang lalu",
+    //   icon: <CheckCircle2 className="text-et-green" size={16} />,
+    //   isRead: false,
+    // },
+    // {
+    //   id: 3,
+    //   title: "Pemeliharaan Sistem",
+    //   desc: "Pembaruan firmware sensor berhasil dipasang",
+    //   time: "3 jam yang lalu",
+    //   icon: <Zap className="text-et-blue" size={16} />,
+    //   isRead: true,
+    // },
   ];
 
   useEffect(() => {
@@ -120,7 +120,7 @@ const Navbar = ({ isDarkMode, toggleDarkMode, onLogout }) => {
               }`}
             >
               <Bell size={20} />
-              <span className="absolute top-2.5 right-2.5 w-2 h-2 bg-red-500 rounded-full border-2 border-white dark:border-slate-900"></span>
+              {/* <span className="absolute top-2.5 right-2.5 w-2 h-2 bg-red-500 rounded-full border-2 border-white dark:border-slate-900"></span> */}
             </button>
 
             {isNotifOpen && (
@@ -188,7 +188,7 @@ const Navbar = ({ isDarkMode, toggleDarkMode, onLogout }) => {
                 Administrator
               </p>
               <p className="text-[10px] text-et-green font-bold tracking-widest uppercase">
-                Pengguna Super
+                Superuser
               </p>
             </div>
             <UserCircle
@@ -204,7 +204,7 @@ const Navbar = ({ isDarkMode, toggleDarkMode, onLogout }) => {
                   Akun
                 </p>
                 <p className="text-sm font-bold text-slate-700 dark:text-slate-200 truncate mt-1">
-                  admin@tepal.id
+                  admin@ems-tepal
                 </p>
               </div>
               <DropdownItem icon={<User size={16} />} label="Profil Saya" />
@@ -217,7 +217,7 @@ const Navbar = ({ isDarkMode, toggleDarkMode, onLogout }) => {
                   onClick={onLogout}
                   className="w-full flex items-center gap-3 px-4 py-2.5 text-sm font-bold text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors"
                 >
-                  <LogOut size={16} /> Keluar Sistem
+                  <LogOut size={16} /> Logout
                 </button>
               </div>
             </div>

@@ -4,8 +4,8 @@ import MyLogo from "../images/logo_energitimur.png";
 import {
   LayoutDashboard,
   Activity,
-  Banknote,
-  Leaf,
+  // Banknote,
+  // Leaf,
   Settings,
   History,
   MapPin,
@@ -65,8 +65,11 @@ const Sidebar = () => {
           <h1 className="font-black text-[14px] text-white leading-tight uppercase tracking-tighter">
             EMS - <span className="text-et-yellow">TEPAL (SUMBAWA)</span>
           </h1>
-          <p className="text-[9px] text-blue-200/60 font-bold tracking-widest uppercase truncate">
-            Energi Timur Nusa Power
+          <p className="text-[9px] text-blue-200/60 font-bold tracking-widest uppercase">
+            Energi Timur
+          </p>
+          <p className="text-[9px] text-blue-200/60 font-bold tracking-widest uppercase">
+            Nusa Power
           </p>
         </div>
       </div>

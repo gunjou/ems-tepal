@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { TrendingUp, AlertCircle, Info } from "lucide-react";
+import { TrendingUp, Info } from "lucide-react";
 
 const StatCard = ({
   label,
@@ -14,10 +14,17 @@ const StatCard = ({
   phases,
   extraInfo,
 }) => {
+  // eslint-disable-next-line no-unused-vars
   const [showTooltip, setShowTooltip] = useState(false);
 
-  // Warna background area bawah saat aktif (diambil dari props color)
+  // Deteksi jika warna adalah kuning untuk penyesuaian kontras teks
+  const isYellow = color.includes("yellow");
   const bgActiveBase = color.replace(/^text-/, "bg-");
+
+  // Teks utama saat aktif: Jika kuning gunakan slate-900, selain itu putih
+  const activeTextClass = isYellow ? "text-slate-900" : "text-white";
+  // Teks sekunder/label saat aktif: Jika kuning gunakan slate-900/70, selain itu putih/70
+  const activeSubTextClass = isYellow ? "text-slate-900/70" : "text-white/70";
 
   return (
     <div
@@ -28,9 +35,8 @@ const StatCard = ({
           : `border-slate-100 dark:border-slate-800 hover:border-et-blue/30`
       }`}
     >
-      {/* Container Utama Atas (Selalu Warna Standar) */}
+      {/* 1. Upper Section tetap sama */}
       <div className="p-3 flex flex-col flex-grow">
-        {/* 1. Header (Icon & Trend) */}
         <div className="flex justify-between items-start h-8 mb-2">
           <div
             className={`p-1.5 rounded-lg bg-slate-50 dark:bg-slate-800 ${color}`}
@@ -59,7 +65,6 @@ const StatCard = ({
           )}
         </div>
 
-        {/* 2. Main Content Area (Warna Tetap/Konsisten) */}
         <div className="flex-grow flex flex-col justify-center mb-1">
           <div className="flex items-baseline gap-1">
             <h3 className="text-3xl font-black text-slate-800 dark:text-white tabular-nums tracking-tighter leading-none">
@@ -75,7 +80,7 @@ const StatCard = ({
         </div>
       </div>
 
-      {/* 3. Bottom Section (Hanya bagian ini yang berubah warna saat aktif) */}
+      {/* 2. Bottom Section dengan Kontras yang Diperbaiki */}
       <div
         className={`mt-auto px-3 py-2 border-t transition-all duration-300 min-h-[45px] flex items-center ${
           isActive
@@ -88,16 +93,16 @@ const StatCard = ({
             {phases.map((p) => (
               <div key={p.label} className="text-left">
                 <p
-                  className={`text-[7px] font-bold uppercase leading-none mb-1 ${isActive ? "text-white/70" : "text-slate-400"}`}
+                  className={`text-[7px] font-bold uppercase leading-none mb-1 ${isActive ? activeSubTextClass : "text-slate-400"}`}
                 >
                   Fasa {p.label}
                 </p>
                 <p
-                  className={`text-[10px] font-black leading-none ${isActive ? "text-white" : "text-slate-700 dark:text-slate-200"}`}
+                  className={`text-[10px] font-black leading-none ${isActive ? activeTextClass : "text-slate-700 dark:text-slate-200"}`}
                 >
                   {p.value}
                   <span
-                    className={`text-[7px] ml-0.5 font-medium ${isActive ? "text-white/70" : "text-slate-400"}`}
+                    className={`text-[7px] ml-0.5 font-medium ${isActive ? activeSubTextClass : "text-slate-400"}`}
                   >
                     {unit}
                   </span>
@@ -109,39 +114,29 @@ const StatCard = ({
           <div className="flex items-center justify-between relative w-full">
             <div className="flex flex-col">
               <p
-                className={`text-[7px] font-bold uppercase leading-none mb-1 ${isActive ? "text-white/70" : "text-slate-400"}`}
+                className={`text-[7px] font-bold uppercase leading-none mb-1 ${isActive ? activeSubTextClass : "text-slate-400"}`}
               >
                 {extraInfo.label}
               </p>
               <p
-                className={`text-xs font-black flex items-center gap-1 leading-none ${isActive ? "text-white" : "text-red-600 dark:text-red-400"}`}
+                className={`text-xs font-black flex items-center gap-1 leading-none ${isActive ? activeTextClass : "text-red-600 dark:text-red-400"}`}
               >
                 {extraInfo.value}
                 {extraInfo.unit}
                 <button
                   onMouseEnter={() => setShowTooltip(true)}
                   onMouseLeave={() => setShowTooltip(false)}
-                  className={`transition-colors ${isActive ? "text-white/60 hover:text-white" : "text-slate-300 hover:text-et-blue"}`}
+                  className={`transition-colors ${isActive ? (isYellow ? "text-slate-900/40 hover:text-slate-900" : "text-white/60 hover:text-white") : "text-slate-300 hover:text-et-blue"}`}
                 >
                   <Info size={10} />
                 </button>
               </p>
             </div>
-
-            {showTooltip && (
-              <div className="absolute bottom-full left-0 mb-2 w-48 bg-slate-800 text-white text-[9px] p-2 rounded-lg shadow-xl z-50 animate-in fade-in zoom-in-95 duration-200">
-                <p className="font-bold mb-1 text-et-yellow">
-                  Ketidakseimbangan Arus
-                </p>
-                Persentase perbedaan beban antar fasa.
-                <div className="absolute top-full left-4 border-8 border-transparent border-t-slate-800"></div>
-              </div>
-            )}
           </div>
         ) : (
           <div className="flex items-center">
             <p
-              className={`text-[8px] font-bold uppercase tracking-widest italic ${isActive ? "text-white/60" : "text-slate-300 dark:text-slate-600"}`}
+              className={`text-[8px] font-bold uppercase tracking-widest italic ${isActive ? activeSubTextClass : "text-slate-300 dark:text-slate-600"}`}
             >
               Sistem Terpantau
             </p>
