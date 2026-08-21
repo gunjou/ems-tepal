@@ -48,16 +48,16 @@ const Settings = () => {
             </p>
           </div>
         </div>
-        <button className="flex items-center gap-2 px-4 py-2 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-xl font-bold text-xs hover:bg-slate-200 transition-colors">
+        {/* <button className="flex items-center gap-2 px-4 py-2 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-xl font-bold text-xs hover:bg-slate-200 transition-colors">
           <RefreshCcw size={14} /> Update Firmware
-        </button>
+        </button> */}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left Column: Technical Configuration */}
         <div className="lg:col-span-2 space-y-6">
           {/* Section: Electrical Params */}
-          <section className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm">
+          {/* <section className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm">
             <div className="flex items-center gap-3 mb-6">
               <Zap className="text-et-yellow" size={20} />
               <h3 className="font-bold text-slate-800 dark:text-white">
@@ -118,7 +118,7 @@ const Settings = () => {
                 </select>
               </div>
             </div>
-          </section>
+          </section> */}
 
           {/* Section: IoT Device Status */}
           <section className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm">
@@ -174,7 +174,7 @@ const Settings = () => {
             </div>
           </div>
 
-          <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm">
+          {/* <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm">
             <div className="flex items-center gap-3 mb-6">
               <Database className="text-indigo-500" size={20} />
               <h3 className="font-bold text-slate-800 dark:text-white">
@@ -188,7 +188,7 @@ const Settings = () => {
             <button className="w-full py-3 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 rounded-2xl text-xs font-bold hover:bg-et-blue hover:text-white transition-all">
               Export to .CSV
             </button>
-          </div>
+          </div> */}
 
           {/* Action Buttons */}
           <div className="flex flex-col gap-3">

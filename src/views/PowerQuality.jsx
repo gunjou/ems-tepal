@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   LineChart,
   Line,
@@ -7,231 +7,265 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
-  ReferenceLine,
   AreaChart,
   Area,
 } from "recharts";
-import { Zap, ShieldCheck, Activity, AlertOctagon, Info } from "lucide-react";
+import { Zap, ShieldCheck, Activity, RotateCcw } from "lucide-react";
+import Api from "../Api";
 
-const PowerQuality = ({ activeTab }) => {
-  // 1. Logika Data Real-time
-  const [realtimeData, setRealtimeData] = useState(() => {
-    return Array.from({ length: 20 }, (_, i) => {
-      const time = new Date();
-      time.setSeconds(time.getSeconds() - (20 - i) * 3);
-      return {
-        time: time.toLocaleTimeString([], {
-          hour: "2-digit",
-          minute: "2-digit",
-          second: "2-digit",
-        }),
-        voltage: parseFloat((219 + Math.random() * 4).toFixed(1)),
-        pf: parseFloat((0.96 + Math.random() * 0.03).toFixed(2)),
-        frequency: parseFloat((49.9 + Math.random() * 0.2).toFixed(2)),
-      };
-    });
-  });
+const PowerQuality = ({ activeTab, filterValue, deviceId }) => {
+  const [data, setData] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
 
-  // 2. Data Riwayat
-  const historyData = useMemo(() => {
-    const generateHistory = (len, vMin, vMax, fMin, fMax) =>
-      Array.from({ length: len }, (_, i) => ({
-        time: `${i}:00`,
-        voltage: parseFloat((Math.random() * (vMax - vMin) + vMin).toFixed(1)),
-        pf: parseFloat((0.94 + Math.random() * 0.05).toFixed(2)),
-        frequency: parseFloat(
-          (Math.random() * (fMax - fMin) + fMin).toFixed(2),
-        ),
-      }));
+  const isRealtime = activeTab === "Realtime" || activeTab === "Waktu Nyata";
+  const isDaily = activeTab === "Harian";
+  const isMonthly = activeTab === "Bulanan";
+  const isYearly = activeTab === "Tahunan";
 
-    return {
-      Harian: generateHistory(24, 218, 224, 49.95, 50.05),
-      Bulanan: Array.from({ length: 30 }, (_, i) => ({
-        time: `Tgl ${i + 1}`,
-        voltage: 220.2,
-        pf: parseFloat((0.92 + Math.random() * 0.06).toFixed(2)),
-        frequency: 50.0,
-      })),
-      Tahunan: [
-        "Jan",
-        "Feb",
-        "Mar",
-        "Apr",
-        "Mei",
-        "Jun",
-        "Jul",
-        "Agu",
-        "Sep",
-        "Okt",
-        "Nov",
-        "Des",
-      ].map((m) => ({
-        time: m,
-        voltage: 220.5,
-        pf: 0.97,
-        frequency: 50.0,
-      })),
-    };
-  }, []);
+  const fetchPQData = useCallback(async () => {
+    try {
+      let endpoint = "/power-quality/realtime";
+      let params = {};
 
-  // 3. Interval Update
-  useEffect(() => {
-    if (activeTab === "Realtime") {
-      const interval = setInterval(() => {
-        setRealtimeData((prev) => {
-          const newData = [...prev.slice(1)];
-          newData.push({
-            time: new Date().toLocaleTimeString([], {
-              hour: "2-digit",
-              minute: "2-digit",
-              second: "2-digit",
-            }),
-            voltage: parseFloat((219 + Math.random() * 4).toFixed(1)),
-            pf: parseFloat((0.96 + Math.random() * 0.03).toFixed(2)),
-            frequency: parseFloat((49.9 + Math.random() * 0.2).toFixed(2)),
-          });
-          return newData;
-        });
-      }, 3000);
-      return () => clearInterval(interval);
+      if (deviceId) {
+        params.device_id = deviceId;
+      }
+
+      if (isDaily) {
+        endpoint = "/power-quality/daily";
+        params.date = filterValue;
+      } else if (isMonthly) {
+        endpoint = "/power-quality/monthly";
+        params.month = filterValue;
+        params.year = new Date().getFullYear();
+      } else if (isYearly) {
+        endpoint = "/power-quality/yearly";
+        params.year = filterValue;
+      }
+
+      const response = await Api.get(endpoint, { params });
+
+      if (response.data.success) {
+        setData(response.data.data);
+      }
+    } catch (err) {
+      console.error("Gagal mengambil data PQ:", err);
     }
-  }, [activeTab]);
+  }, [isDaily, isMonthly, isYearly, filterValue, deviceId]);
 
-  const activeData =
-    activeTab === "Realtime" ? realtimeData : historyData[activeTab];
+  useEffect(() => {
+    setIsLoading(true);
+
+    fetchPQData().finally(() => {
+      setTimeout(() => setIsLoading(false), 300);
+    });
+
+    let interval = null;
+
+    if (isRealtime) {
+      interval = setInterval(() => {
+        fetchPQData();
+      }, 5000);
+    }
+
+    return () => {
+      if (interval) {
+        clearInterval(interval);
+      }
+    };
+  }, [fetchPQData, isRealtime, activeTab]);
+
+  const formatXAxis = (tickItem) => {
+    if (!tickItem) return "";
+
+    if (isMonthly && tickItem.includes("-")) {
+      return tickItem.split("-")[0];
+    }
+
+    if (isYearly) {
+      return tickItem.substring(0, 3);
+    }
+
+    return tickItem;
+  };
+
+  const getPeriodLabel = () => {
+    if (isRealtime) return "Nilai Terakhir";
+    if (isDaily) return "Rata-rata Harian";
+    if (isMonthly) return "Rata-rata Bulanan";
+    if (isYearly) return "Rata-rata Tahunan";
+    return "Rata-rata";
+  };
+
+  const getResetLabel = () => {
+    if (isRealtime) return "Reset Hari Ini";
+    if (isDaily) return "Reset Hari Ini";
+    if (isMonthly) return "Reset Bulanan";
+    if (isYearly) return "Reset Tahunan";
+    return "Jumlah Restart";
+  };
+
+  const getChartPeriodLabel = () => {
+    if (isRealtime) return "Realtime";
+    if (isDaily) return "Harian";
+    if (isMonthly) return "Bulanan";
+    if (isYearly) return "Tahunan";
+    return "";
+  };
+
+  const getChartDescription = () => {
+    if (isRealtime) return "20 interval terakhir";
+    if (isDaily) return `Hari ${filterValue || "ini"}`;
+    if (isMonthly) return `Bulan ${filterValue || ""}`;
+    if (isYearly) return `Tahun ${filterValue || ""}`;
+    return "";
+  };
+
+  if (isLoading && !data) {
+    return (
+      <div className="h-96 flex flex-col items-center justify-center">
+        <div className="w-12 h-12 border-4 border-et-blue/20 border-t-et-blue rounded-full animate-spin"></div>
+        <p className="mt-4 text-xs font-bold text-slate-400 uppercase tracking-widest text-center">
+          Menyusun Laporan Power Quality...
+        </p>
+      </div>
+    );
+  }
+
+  const chartData = data?.chart || [];
+  const cardData = data?.card || {};
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-700">
-      {/* KARTU METRIK UTAMA */}
+    <div className="relative space-y-6 animate-in fade-in duration-700">
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <PQCard
           title="Tegangan"
-          value={activeData[activeData.length - 1]?.voltage}
-          unit="V"
+          value={cardData?.voltage?.value}
+          unit={cardData?.voltage?.unit}
           icon={<Zap />}
           color="text-et-yellow"
-          sub="Stabilisasi 220V"
+          sub={getPeriodLabel()}
         />
+
         <PQCard
           title="Faktor Daya"
-          value={activeData[activeData.length - 1]?.pf}
-          unit="cos φ"
+          value={cardData?.power_factor?.value}
+          unit={cardData?.power_factor?.unit}
           icon={<ShieldCheck />}
           color="text-et-blue"
-          sub="Efisiensi Sistem"
+          sub="Rata-rata Faktor Daya"
         />
+
         <PQCard
           title="Frekuensi"
-          value={activeData[activeData.length - 1]?.frequency}
-          unit="Hz"
+          value={cardData?.frequency?.value}
+          unit={cardData?.frequency?.unit}
           icon={<Activity />}
           color="text-et-green"
-          sub="Sinkronisasi Turbin"
+          sub="Rata-rata Frekuensi"
         />
+
         <PQCard
-          title="Anomali"
-          value={activeTab === "Realtime" ? "0" : "1"}
-          unit="Kejadian"
-          icon={<AlertOctagon />}
+          title="Restart Perangkat"
+          value={cardData?.anomalies?.value}
+          unit={cardData?.anomalies?.unit}
+          icon={<RotateCcw />}
           color="text-red-500"
-          sub={`Log ${activeTab}`}
+          sub={getResetLabel()}
         />
       </div>
 
-      {/* AREA DIAGRAM UTAMA */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* SECTION KIRI: TEGANGAN (Tampil Sendiri - Lebih Luas) */}
         <div className="lg:col-span-2 bg-white dark:bg-slate-900 p-6 rounded-[32px] border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col h-[370px]">
           <div className="mb-6">
-            <h3 className="font-bold text-slate-800 dark:text-white">
-              Pemantauan Tegangan
+            <h3 className="font-bold text-slate-800 dark:text-white leading-none">
+              Analisis Tegangan {getChartPeriodLabel()}
             </h3>
-            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">
-              Stabilitas Voltase Fase Tunggal ({activeTab})
+            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-2">
+              Voltase Sistem (V) - {getChartDescription()}
             </p>
           </div>
+
           <div className="flex-1">
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={activeData}>
+              <AreaChart data={chartData}>
                 <defs>
                   <linearGradient id="colorVoltage" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor="#FBC02D" stopOpacity={0.2} />
                     <stop offset="95%" stopColor="#FBC02D" stopOpacity={0} />
                   </linearGradient>
                 </defs>
+
                 <CartesianGrid
                   strokeDasharray="3 3"
                   vertical={false}
                   strokeOpacity={0.05}
                 />
+
                 <XAxis
-                  dataKey="time"
-                  hide={activeTab === "Realtime"}
+                  dataKey="label"
                   fontSize={10}
                   tickLine={false}
                   axisLine={false}
+                  tick={{ fill: "#94a3b8" }}
+                  tickFormatter={formatXAxis}
+                  interval={isYearly ? 0 : isMonthly ? 4 : 2}
+                  hide={isRealtime}
                 />
+
                 <YAxis
-                  domain={[200, 240]}
+                  domain={["auto", "auto"]}
                   fontSize={10}
                   axisLine={false}
                   tickLine={false}
-                  width={30}
+                  width={35}
                 />
-                <Tooltip />
-                <ReferenceLine
-                  y={220}
-                  stroke="#94a3b8"
-                  strokeDasharray="3 3"
-                  label={{
-                    value: "220V",
-                    position: "right",
-                    fontSize: 10,
-                    fill: "#94a3b8",
-                  }}
+
+                <Tooltip
+                  content={<CustomPQTooltip unit="V" mode={activeTab} />}
                 />
+
                 <Area
                   type="monotone"
                   dataKey="voltage"
                   stroke="#FBC02D"
                   strokeWidth={3}
                   fill="url(#colorVoltage)"
-                  animationDuration={500}
                 />
               </AreaChart>
             </ResponsiveContainer>
           </div>
         </div>
 
-        {/* SECTION KANAN: STACK FAKTOR DAYA & FREKUENSI */}
         <div className="flex flex-col gap-6 h-[370px]">
-          {/* FAKTOR DAYA (Atas - Setengah Tinggi) */}
           <div className="flex-1 bg-white dark:bg-slate-900 p-5 rounded-[32px] border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col">
             <h3 className="font-bold text-slate-800 dark:text-white text-xs mb-4">
               Tren Faktor Daya
             </h3>
+
             <div className="flex-1 min-h-0">
               <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={activeData}>
+                <LineChart data={chartData}>
                   <CartesianGrid
                     strokeDasharray="3 3"
                     vertical={false}
                     strokeOpacity={0.05}
                   />
-                  <XAxis dataKey="time" hide />
+
+                  <XAxis dataKey="label" hide />
+
                   <YAxis
-                    domain={[0.8, 1]}
+                    domain={[0.5, 1]}
                     fontSize={9}
                     axisLine={false}
                     tickLine={false}
                     width={25}
                   />
-                  <Tooltip />
-                  <ReferenceLine
-                    y={0.85}
-                    stroke="#EF4444"
-                    strokeDasharray="3 3"
+
+                  <Tooltip
+                    content={<CustomPQTooltip unit="cos φ" mode={activeTab} />}
                   />
+
                   <Line
                     type="monotone"
                     dataKey="pf"
@@ -242,59 +276,54 @@ const PowerQuality = ({ activeTab }) => {
                 </LineChart>
               </ResponsiveContainer>
             </div>
-            <div className="mt-2 flex items-center gap-2 text-[10px] text-slate-500 bg-slate-50 dark:bg-slate-800/50 p-2 rounded-xl">
-              <ShieldCheck size={12} className="text-et-blue" />
-              <span>Kualitas PF stabil di atas ambang batas 0.85</span>
-            </div>
           </div>
 
-          {/* FREKUENSI (Bawah - Setengah Tinggi) */}
           <div className="flex-1 bg-white dark:bg-slate-900 p-5 rounded-[32px] border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col">
             <h3 className="font-bold text-slate-800 dark:text-white text-xs mb-4">
               Stabilitas Frekuensi
             </h3>
+
             <div className="flex-1 min-h-0">
               <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={activeData}>
-                  <defs>
-                    <linearGradient id="colorFreq" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#438241" stopOpacity={0.2} />
-                      <stop offset="95%" stopColor="#438241" stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
+                <AreaChart data={chartData}>
                   <CartesianGrid
                     strokeDasharray="3 3"
                     vertical={false}
                     strokeOpacity={0.05}
                   />
-                  <XAxis dataKey="time" hide />
+
+                  <XAxis
+                    dataKey="label"
+                    fontSize={10}
+                    tickLine={false}
+                    axisLine={false}
+                    tickFormatter={formatXAxis}
+                    interval={isYearly ? 0 : 4}
+                    hide={isRealtime}
+                  />
+
                   <YAxis
-                    domain={[48, 52]}
+                    domain={[0, 60]}
                     fontSize={9}
                     axisLine={false}
                     tickLine={false}
                     width={25}
                   />
-                  <Tooltip />
-                  <ReferenceLine
-                    y={50}
-                    stroke="#438241"
-                    strokeDasharray="3 3"
+
+                  <Tooltip
+                    content={<CustomPQTooltip unit="Hz" mode={activeTab} />}
                   />
+
                   <Area
                     type="monotone"
                     dataKey="frequency"
                     stroke="#438241"
                     strokeWidth={2}
-                    fill="url(#colorFreq)"
-                    dot={false}
+                    fillOpacity={0.1}
+                    fill="#438241"
                   />
                 </AreaChart>
               </ResponsiveContainer>
-            </div>
-            <div className="mt-2 flex items-center gap-2 text-[10px] text-slate-500 bg-slate-50 dark:bg-slate-800/50 p-2 rounded-xl">
-              <Info size={12} className="text-et-green" />
-              <span>Sinkronisasi turbin saat ini: 50.0 Hz</span>
             </div>
           </div>
         </div>
@@ -303,7 +332,38 @@ const PowerQuality = ({ activeTab }) => {
   );
 };
 
-// Komponen Kecil untuk Kartu Statistik
+const CustomPQTooltip = ({ active, payload, label, unit, mode }) => {
+  if (!active || !payload || !payload.length) {
+    return null;
+  }
+
+  let contextLabel = label;
+
+  if (mode === "Bulanan") {
+    contextLabel = `Tanggal ${label}`;
+  } else if (mode === "Tahunan") {
+    contextLabel = `Bulan ${label}`;
+  } else if (mode === "Harian") {
+    contextLabel = `Pukul ${label}`;
+  } else if (mode === "Realtime" || mode === "Waktu Nyata") {
+    contextLabel = `Pukul ${label}`;
+  }
+
+  const value = Number(payload[0].value || 0);
+
+  return (
+    <div className="bg-white dark:bg-slate-800 p-2 shadow-xl border border-slate-100 dark:border-slate-700 rounded-lg">
+      <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">
+        {contextLabel}
+      </p>
+      <p className="text-sm font-black dark:text-white">
+        {value.toLocaleString("id-ID")}{" "}
+        <span className="text-[10px] font-normal text-slate-500">{unit}</span>
+      </p>
+    </div>
+  );
+};
+
 const PQCard = ({ title, value, unit, icon, color, sub }) => (
   <div className="bg-white dark:bg-slate-900 p-4 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm">
     <div className="flex items-center gap-3 mb-3">
@@ -316,13 +376,17 @@ const PQCard = ({ title, value, unit, icon, color, sub }) => (
         {title}
       </p>
     </div>
+
     <div className="space-y-0.5">
       <div className="flex items-baseline gap-1">
         <h4 className="text-xl font-black text-slate-800 dark:text-white tabular-nums">
-          {value || "0.0"}
+          {typeof value === "number"
+            ? value.toLocaleString("id-ID")
+            : (value ?? "0")}
         </h4>
         <span className="text-[10px] font-bold text-slate-400">{unit}</span>
       </div>
+
       <p className="text-[9px] font-bold text-slate-500 uppercase opacity-70">
         {sub}
       </p>
