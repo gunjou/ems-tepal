@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import {
   LineChart,
   Line,
@@ -16,6 +16,10 @@ import Api from "../Api";
 const PowerQuality = ({ activeTab, filterValue, deviceId }) => {
   const [data, setData] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isDataStale, setIsDataStale] = useState(false);
+  const [realtimeHistory, setRealtimeHistory] = useState([]);
+  const [replayPosition, setReplayPosition] = useState(0);
+  const [lastRealtimeTs, setLastRealtimeTs] = useState(null);
 
   const isRealtime = activeTab === "Realtime" || activeTab === "Waktu Nyata";
   const isDaily = activeTab === "Harian";
@@ -45,13 +49,61 @@ const PowerQuality = ({ activeTab, filterValue, deviceId }) => {
 
       const response = await Api.get(endpoint, { params });
 
-      if (response.data.success) {
-        setData(response.data.data);
+      if (!response.data.success) return;
+
+      const result = response.data.data;
+      setData(result);
+
+      if (!isRealtime) return;
+
+      const newChart = result?.chart || [];
+
+      if (!newChart.length) {
+        setIsDataStale(true);
+        return;
+      }
+
+      const newLastTs = newChart[newChart.length - 1]?.ts;
+
+      if (!newLastTs) {
+        setIsDataStale(true);
+        return;
+      }
+
+      if (!lastRealtimeTs) {
+        setLastRealtimeTs(newLastTs);
+        setRealtimeHistory(newChart);
+        setReplayPosition(newChart.length - 1);
+        setIsDataStale(false);
+        return;
+      }
+
+      const hasNewData = newLastTs !== lastRealtimeTs;
+
+      if (hasNewData) {
+        setLastRealtimeTs(newLastTs);
+        setRealtimeHistory(newChart);
+        setReplayPosition(newChart.length - 1);
+        setIsDataStale(false);
+      } else {
+        setIsDataStale(true);
       }
     } catch (err) {
       console.error("Gagal mengambil data PQ:", err);
+
+      if (isRealtime) {
+        setIsDataStale(true);
+      }
     }
-  }, [isDaily, isMonthly, isYearly, filterValue, deviceId]);
+  }, [
+    isDaily,
+    isMonthly,
+    isYearly,
+    isRealtime,
+    filterValue,
+    deviceId,
+    lastRealtimeTs,
+  ]);
 
   useEffect(() => {
     setIsLoading(true);
@@ -74,6 +126,35 @@ const PowerQuality = ({ activeTab, filterValue, deviceId }) => {
       }
     };
   }, [fetchPQData, isRealtime, activeTab]);
+
+  useEffect(() => {
+    if (!isRealtime || !isDataStale || realtimeHistory.length < 2) {
+      return;
+    }
+
+    const interval = setInterval(() => {
+      setReplayPosition((prev) => {
+        return (prev + 1) % realtimeHistory.length;
+      });
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [isRealtime, isDataStale, realtimeHistory.length]);
+
+  const realtimeChartData = useMemo(() => {
+    if (!isRealtime || !isDataStale || realtimeHistory.length < 2) {
+      return data?.chart || [];
+    }
+
+    const total = realtimeHistory.length;
+    const windowSize = Math.min(20, total);
+
+    return Array.from({ length: windowSize }, (_, i) => {
+      const index = (replayPosition - windowSize + 1 + i + total) % total;
+
+      return realtimeHistory[index];
+    });
+  }, [data, realtimeHistory, replayPosition, isRealtime, isDataStale]);
 
   const formatXAxis = (tickItem) => {
     if (!tickItem) return "";
@@ -114,10 +195,14 @@ const PowerQuality = ({ activeTab, filterValue, deviceId }) => {
   };
 
   const getChartDescription = () => {
-    if (isRealtime) return "20 interval terakhir";
+    if (isRealtime) {
+      return isDataStale ? "Replay data terakhir" : "20 interval terakhir";
+    }
+
     if (isDaily) return `Hari ${filterValue || "ini"}`;
     if (isMonthly) return `Bulan ${filterValue || ""}`;
     if (isYearly) return `Tahun ${filterValue || ""}`;
+
     return "";
   };
 
@@ -132,7 +217,6 @@ const PowerQuality = ({ activeTab, filterValue, deviceId }) => {
     );
   }
 
-  const chartData = data?.chart || [];
   const cardData = data?.card || {};
 
   return (
@@ -181,6 +265,7 @@ const PowerQuality = ({ activeTab, filterValue, deviceId }) => {
             <h3 className="font-bold text-slate-800 dark:text-white leading-none">
               Analisis Tegangan {getChartPeriodLabel()}
             </h3>
+
             <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-2">
               Voltase Sistem (V) - {getChartDescription()}
             </p>
@@ -188,7 +273,7 @@ const PowerQuality = ({ activeTab, filterValue, deviceId }) => {
 
           <div className="flex-1">
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={chartData}>
+              <AreaChart data={realtimeChartData}>
                 <defs>
                   <linearGradient id="colorVoltage" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor="#FBC02D" stopOpacity={0.2} />
@@ -245,7 +330,7 @@ const PowerQuality = ({ activeTab, filterValue, deviceId }) => {
 
             <div className="flex-1 min-h-0">
               <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={chartData}>
+                <LineChart data={realtimeChartData}>
                   <CartesianGrid
                     strokeDasharray="3 3"
                     vertical={false}
@@ -285,7 +370,7 @@ const PowerQuality = ({ activeTab, filterValue, deviceId }) => {
 
             <div className="flex-1 min-h-0">
               <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={chartData}>
+                <AreaChart data={realtimeChartData}>
                   <CartesianGrid
                     strokeDasharray="3 3"
                     vertical={false}
@@ -356,6 +441,7 @@ const CustomPQTooltip = ({ active, payload, label, unit, mode }) => {
       <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">
         {contextLabel}
       </p>
+
       <p className="text-sm font-black dark:text-white">
         {value.toLocaleString("id-ID")}{" "}
         <span className="text-[10px] font-normal text-slate-500">{unit}</span>
@@ -372,6 +458,7 @@ const PQCard = ({ title, value, unit, icon, color, sub }) => (
       >
         {React.cloneElement(icon, { size: 16 })}
       </div>
+
       <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
         {title}
       </p>
@@ -384,6 +471,7 @@ const PQCard = ({ title, value, unit, icon, color, sub }) => (
             ? value.toLocaleString("id-ID")
             : (value ?? "0")}
         </h4>
+
         <span className="text-[10px] font-bold text-slate-400">{unit}</span>
       </div>
 

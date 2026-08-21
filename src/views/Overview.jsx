@@ -17,6 +17,10 @@ const Overview = ({ activeTab, subLocation = "total", filterValue }) => {
   const isMonthly = activeTab === "Bulanan";
   const isYearly = activeTab === "Tahunan";
 
+  const [replayPosition, setReplayPosition] = useState(0);
+  const [realtimeHistory, setRealtimeHistory] = useState([]);
+  const [replayIndex, setReplayIndex] = useState(0);
+
   const getDeviceId = useCallback(() => {
     if (subLocation === "tepal") return "EMS-01";
     if (subLocation === "pusu") return "EMS-02";
@@ -119,6 +123,10 @@ const Overview = ({ activeTab, subLocation = "total", filterValue }) => {
           : response.data.data;
 
         setChartData(finalChartData);
+
+        if (isRealtime && Array.isArray(finalChartData)) {
+          setRealtimeHistory(finalChartData);
+        }
       }
     } catch (err) {
       console.error("Gagal mengambil chart:", err);
@@ -133,6 +141,55 @@ const Overview = ({ activeTab, subLocation = "total", filterValue }) => {
     isYearly,
     filterValue,
   ]);
+
+  useEffect(() => {
+    if (!isRealtime || isDataStale || !realtimeHistory.length) {
+      return;
+    }
+
+    setReplayPosition(realtimeHistory.length - 1);
+  }, [isRealtime, isDataStale, realtimeHistory]);
+
+  useEffect(() => {
+    if (!isRealtime || !isDataStale || realtimeHistory.length < 2) {
+      return;
+    }
+
+    const interval = setInterval(() => {
+      setReplayPosition((prev) => {
+        return (prev + 1) % realtimeHistory.length;
+      });
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [isRealtime, isDataStale, realtimeHistory.length]);
+
+  const displayedChartData = useMemo(() => {
+    if (!isRealtime || !isDataStale || realtimeHistory.length < 2) {
+      return chartData;
+    }
+
+    return realtimeHistory.slice(0, replayIndex + 1);
+  }, [chartData, realtimeHistory, replayIndex, isRealtime, isDataStale]);
+
+  const REPLAY_WINDOW = 20;
+
+  const replayChartData = useMemo(() => {
+    if (!isRealtime || !isDataStale || realtimeHistory.length < 2) {
+      return chartData;
+    }
+
+    const total = realtimeHistory.length;
+    const result = [];
+
+    for (let i = 0; i < REPLAY_WINDOW; i++) {
+      const index = (replayPosition - REPLAY_WINDOW + 1 + i + total) % total;
+
+      result.push(realtimeHistory[index]);
+    }
+
+    return result;
+  }, [chartData, realtimeHistory, replayPosition, isRealtime, isDataStale]);
 
   useEffect(() => {
     setIsLoading(true);
@@ -269,7 +326,7 @@ const Overview = ({ activeTab, subLocation = "total", filterValue }) => {
             <RealtimeLoadChart
               activeMetric={activeMetric}
               activeTab={activeTab}
-              historyData={chartData}
+              historyData={replayChartData}
             />
           </div>
         </div>
