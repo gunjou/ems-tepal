@@ -21,12 +21,12 @@ const RealtimeLoadChart = ({ activeMetric, activeTab, historyData = [] }) => {
   // 1. Konfigurasi Warna & Unit
   const config = useMemo(
     () => ({
-      power: { color: "#FBC02D", unit: isRealtime ? "kW" : "kWh" },
+      power: { color: "#FBC02D", unit: isRealtime || isDaily ? "kW" : "kWh" },
       voltage: { color: "#2B5797", unit: "V" },
       current: { color: "#EF4444", unit: "A" },
       frequency: { color: "#438241", unit: "Hz" },
     }),
-    [isRealtime],
+    [isRealtime, isDaily],
   );
 
   const currentConfig = config[activeMetric] || config.power;
